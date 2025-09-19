@@ -1,74 +1,49 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Coast Qualification Engine</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      max-width: 600px;
+<script>
+  async function lookupQualification() {
+    const domain = document.getElementById("domain").value.trim();
+    const resultBox = document.getElementById("result");
+    resultBox.textContent = "Looking up...";
+
+    if (!domain) {
+      resultBox.textContent = "Please enter a domain.";
+      return;
     }
-    h2 { margin-bottom: 1rem; }
-    input { width: 400px; padding: 8px; font-size: 14px; }
-    button { padding: 8px 12px; margin-left: 8px; font-size: 14px; cursor: pointer; }
-    #result { margin-top: 1rem; font-family: monospace; white-space: pre-wrap; }
-  </style>
-</head>
-<body>
-  <h2>Domain Qualification Lookup</h2>
-  <input type="text" id="domain" placeholder="Enter domain (e.g. stripe.com)">
-  <button onclick="submitDomain()">Submit</button>
-  <pre id="result"></pre>
 
-  <script>
-    const SUBMIT_API = "https://linkedin-email-finder-proxy.vercel.app/api/submitQualification";
-    const NOTIFY_API = "https://linkedin-email-finder-proxy.vercel.app/api/notifyQualification";
+    try {
+      await fetch("https://linkedin-email-finder-proxy.vercel.app/api/submitQualification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ Domain: domain })
+      });
 
-    async function submitDomain() {
-      const domain = document.getElementById("domain").value.trim();
-      const resultBox = document.getElementById("result");
+      resultBox.textContent = "Waiting for enrichment…";
 
-      if (!domain) {
-        resultBox.textContent = "⚠️ Please enter a domain.";
-        return;
+      let data = null;
+      let attempts = 0;
+
+      while (!data && attempts < 20) {
+        attempts++;
+        await new Promise(r => setTimeout(r, 3000));
+
+        const res = await fetch(`https://linkedin-email-finder-proxy.vercel.app/api/notifyQualification?domain=${encodeURIComponent(domain)}`);
+        data = await res.json();
       }
 
-      resultBox.textContent = "📤 Submitting domain to Clay…";
-
-      try {
-        // Step 1. Submit domain (goes to Clay webhook via proxy)
-        await fetch(SUBMIT_API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ "Domain": domain })
-        });
-
-        // Step 2. Poll notifyQualification until enrichment is ready
-        resultBox.textContent = "⏳ Waiting for enrichment…";
-
-        let results = null;
-        let attempts = 0;
-
-        while (!results && attempts < 20) { // try for ~1 minute
-          attempts++;
-          await new Promise(r => setTimeout(r, 3000));
-
-          const res = await fetch(`${NOTIFY_API}?domain=${encodeURIComponent(domain)}`);
-          const data = await res.json();
-
-          if (data && data.results) {
-            results = data.results;
-          }
-        }
-
-        resultBox.textContent = results
-          ? JSON.stringify(results, null, 2)
-          : "❌ No results found yet (timed out).";
-      } catch (err) {
-        resultBox.textContent = "💥 Error: " + err.message;
+      if (data?.normalized) {
+        const n = data.normalized;
+        resultBox.innerHTML = `
+          Industry: ${n.Industry || "—"}<br>
+          Employee Count: ${n.Employee_Count || "—"}<br>
+          Swagger/Soap/Postman/OpenAPI: ${n.Swagger_Soap_Postman_OpenAPI || "—"}<br>
+          Gateways: ${n.Gateways || "—"}<br>
+          API URL: ${n.API_URL || "—"}<br>
+          API/SDK Presence: ${n.API_SDK_Presence || "—"}
+        `;
+      } else {
+        resultBox.textContent = "No qualification data found.";
       }
+    } catch (err) {
+      resultBox.textContent = "Error: " + err.message;
     }
-  </script>
-</body>
-</html>
+  }
+</script>
