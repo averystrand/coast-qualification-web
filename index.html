@@ -1,49 +1,70 @@
-<script>
-  async function lookupQualification() {
-    const domain = document.getElementById("domain").value.trim();
-    const resultBox = document.getElementById("result");
-    resultBox.textContent = "Looking up...";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Coast Qualification Engine</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; max-width: 600px; }
+    h2 { margin-bottom: 1rem; }
+    input { width: 400px; padding: 8px; font-size: 14px; }
+    button { padding: 8px 12px; margin-left: 8px; font-size: 14px; cursor: pointer; }
+    #result { margin-top: 1rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>Company Qualification Lookup</h2>
+  <input type="text" id="domain" placeholder="Enter company domain">
+  <button onclick="lookupQualification()">Submit</button>
+  <p id="result"></p>
 
-    if (!domain) {
-      resultBox.textContent = "Please enter a domain.";
-      return;
-    }
+  <script>
+    async function lookupQualification() {
+      const domain = document.getElementById("domain").value.trim();
+      const resultBox = document.getElementById("result");
+      resultBox.textContent = "Looking up...";
 
-    try {
-      await fetch("https://linkedin-email-finder-proxy.vercel.app/api/submitQualification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Domain: domain })
-      });
-
-      resultBox.textContent = "Waiting for enrichment…";
-
-      let data = null;
-      let attempts = 0;
-
-      while (!data && attempts < 20) {
-        attempts++;
-        await new Promise(r => setTimeout(r, 3000));
-
-        const res = await fetch(`https://linkedin-email-finder-proxy.vercel.app/api/notifyQualification?domain=${encodeURIComponent(domain)}`);
-        data = await res.json();
+      if (!domain) {
+        resultBox.textContent = "Please enter a domain.";
+        return;
       }
 
-      if (data?.normalized) {
-        const n = data.normalized;
-        resultBox.innerHTML = `
-          Industry: ${n.Industry || "—"}<br>
-          Employee Count: ${n.Employee_Count || "—"}<br>
-          Swagger/Soap/Postman/OpenAPI: ${n.Swagger_Soap_Postman_OpenAPI || "—"}<br>
-          Gateways: ${n.Gateways || "—"}<br>
-          API URL: ${n.API_URL || "—"}<br>
-          API/SDK Presence: ${n.API_SDK_Presence || "—"}
-        `;
-      } else {
-        resultBox.textContent = "No qualification data found.";
+      try {
+        await fetch("https://linkedin-email-finder-proxy.vercel.app/api/submitQualification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ Domain: domain })
+        });
+
+        resultBox.textContent = "Waiting for enrichment…";
+
+        let data = null;
+        let attempts = 0;
+
+        while (!data && attempts < 20) {
+          attempts++;
+          await new Promise(r => setTimeout(r, 3000));
+
+          const res = await fetch(`https://linkedin-email-finder-proxy.vercel.app/api/notifyQualification?domain=${encodeURIComponent(domain)}`);
+          data = await res.json();
+        }
+
+        if (data?.normalized) {
+          const n = data.normalized;
+          resultBox.innerHTML = `
+            Industry: ${n.Industry || "—"}<br>
+            Employee Count: ${n.Employee_Count || "—"}<br>
+            Swagger/Soap/Postman/OpenAPI: ${n.Swagger_Soap_Postman_OpenAPI || "—"}<br>
+            Gateways: ${n.Gateways || "—"}<br>
+            API URL: ${n.API_URL || "—"}<br>
+            API/SDK Presence: ${n.API_SDK_Presence || "—"}
+          `;
+        } else {
+          resultBox.textContent = "No qualification data found.";
+        }
+      } catch (err) {
+        resultBox.textContent = "Error: " + err.message;
       }
-    } catch (err) {
-      resultBox.textContent = "Error: " + err.message;
     }
-  }
-</script>
+  </script>
+</body>
+</html>
