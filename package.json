@@ -1,0 +1,18 @@
+{
+  "name": "coast-qualification-web",
+  "version": "1.0.0",
+  "description": "Coast qualification frontend and serverless helpers.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "echo \"no lint configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@vercel/kv": "^1.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}

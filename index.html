@@ -29,11 +29,19 @@
       }
 
       try {
-        await fetch("https://linkedin-email-finder-proxy.vercel.app/api/submitQualification", {
+        const submitRes = await fetch("https://linkedin-email-finder-proxy.vercel.app/api/submitQualification", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ Domain: domain })
         });
+
+        if (!submitRes.ok) {
+          const errorText = await submitRes.text();
+          throw new Error(`Submit failed (${submitRes.status}): ${errorText}`);
+        }
+
+        const submitData = await submitRes.json().catch(() => ({}));
+        const runId = submitData.runId || null;
 
         resultBox.textContent = "Waiting for enrichment…";
 
@@ -44,8 +52,32 @@
           attempts++;
           await new Promise(r => setTimeout(r, 3000));
 
-          const res = await fetch(`https://linkedin-email-finder-proxy.vercel.app/api/notifyQualification?domain=${encodeURIComponent(domain)}`);
-          data = await res.json();
+          const params = runId
+            ? `runId=${encodeURIComponent(runId)}`
+            : `domain=${encodeURIComponent(domain)}`;
+          const res = await fetch(`https://linkedin-email-finder-proxy.vercel.app/api/notifyQualification?${params}`);
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Notify failed (${res.status}): ${text}`);
+          }
+
+          const payload = await res.json();
+
+          if (payload?.status !== "complete") {
+            if (payload?.error) {
+              throw new Error(payload.error);
+            }
+            data = null;
+            continue;
+          }
+
+          data = payload;
+        }
+
+        if (!data) {
+          resultBox.textContent = "No qualification data found.";
+          return;
         }
 
         if (data?.normalized) {
@@ -62,6 +94,7 @@
           resultBox.textContent = "No qualification data found.";
         }
       } catch (err) {
+        console.error(err);
         resultBox.textContent = "Error: " + err.message;
       }
     }
